@@ -9,58 +9,92 @@ const tempImageStates = {};
 
 // Fonction pour découper et envoyer les messages longs
 async function sendChunkedMessage(senderId, text) {
-    // Limite de caractères pour Facebook Messenger
-    const MAX_CHUNK_SIZE = 1800;
+    // Limite de caractères pour Facebook Messenger (réduite pour plus de sécurité)
+    const MAX_CHUNK_SIZE = 1500;
+    
+    if (!text || text.length === 0) {
+        console.log("Texte vide, rien à envoyer");
+        return;
+    }
+    
+    console.log(`Découpage du message de longueur: ${text.length} caractères`);
     
     if (text.length <= MAX_CHUNK_SIZE) {
         // Message assez court, envoyer directement
+        console.log(`Envoi direct du message (${text.length} caractères)`);
         await sendMessage(senderId, text);
-    } else {
-        // Découper le message en morceaux
-        let remainingText = text;
-        let chunkIndex = 1;
-        const totalChunks = Math.ceil(text.length / MAX_CHUNK_SIZE);
+        return;
+    }
+    
+    // Découper le message en morceaux
+    const totalChunks = Math.ceil(text.length / MAX_CHUNK_SIZE);
+    console.log(`Le message sera découpé en ${totalChunks} parties`);
+    
+    // Diviser le texte en paragraphes
+    const paragraphs = text.split(/\n+/);
+    let currentChunk = '';
+    let chunkIndex = 1;
+    
+    for (let i = 0; i < paragraphs.length; i++) {
+        const paragraph = paragraphs[i];
         
-        while (remainingText.length > 0) {
-            // Trouver un bon point de découpe (fin de phrase ou de paragraphe)
-            let cutPoint = MAX_CHUNK_SIZE;
-            if (cutPoint < remainingText.length) {
-                // Chercher un point, une fin de ligne ou un espace pour découper proprement
-                const possibleBreaks = [
-                    remainingText.lastIndexOf('. ', cutPoint), 
-                    remainingText.lastIndexOf('\n', cutPoint),
-                    remainingText.lastIndexOf(' ', cutPoint)
-                ];
+        // Si l'ajout du paragraphe dépasse la limite, envoyer le chunk actuel
+        if (currentChunk.length + paragraph.length + 2 > MAX_CHUNK_SIZE) {
+            if (currentChunk.length > 0) {
+                // Ajouter un indicateur de partie
+                const messageToSend = `[Partie ${chunkIndex}/${totalChunks}]\n${currentChunk}`;
+                console.log(`Envoi de la partie ${chunkIndex}/${totalChunks} (${messageToSend.length} caractères)`);
                 
-                // Prendre le meilleur point de découpe disponible
-                cutPoint = Math.max(...possibleBreaks);
-                if (cutPoint <= 0) {
-                    cutPoint = MAX_CHUNK_SIZE; // Si pas de bon point de découpe, on coupe à la taille maximale
-                } else {
-                    cutPoint += 1; // Inclure le caractère de séparation
-                }
-            }
-            
-            // Extraire le morceau à envoyer
-            const chunk = remainingText.substring(0, cutPoint);
-            // Ajouter un indicateur de partie pour les messages multi-parties
-            const chunkMessage = totalChunks > 1 
-                ? `[Partie ${chunkIndex}/${totalChunks}]\n${chunk}` 
-                : chunk;
-            
-            // Envoyer ce morceau
-            await sendMessage(senderId, chunkMessage);
-            
-            // Préparer pour le prochain morceau
-            remainingText = remainingText.substring(cutPoint);
-            chunkIndex++;
-            
-            // Petit délai entre les messages pour éviter les limitations de l'API
-            if (remainingText.length > 0) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await sendMessage(senderId, messageToSend);
+                chunkIndex++;
+                currentChunk = '';
+                
+                // Délai entre les messages pour éviter les limitations
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
+        
+        // Si le paragraphe seul est plus grand que la taille maximale, le découper
+        if (paragraph.length > MAX_CHUNK_SIZE) {
+            let remainingParagraph = paragraph;
+            while (remainingParagraph.length > 0) {
+                let cutPoint = MAX_CHUNK_SIZE;
+                if (cutPoint < remainingParagraph.length) {
+                    // Trouver un bon point de découpe (fin de phrase ou espace)
+                    const sentenceBreak = remainingParagraph.lastIndexOf('. ', cutPoint);
+                    const spaceBreak = remainingParagraph.lastIndexOf(' ', cutPoint);
+                    cutPoint = sentenceBreak > 0 ? sentenceBreak + 1 : (spaceBreak > 0 ? spaceBreak + 1 : cutPoint);
+                }
+                
+                const partToSend = remainingParagraph.substring(0, cutPoint);
+                const messageToSend = `[Partie ${chunkIndex}/${totalChunks}]\n${partToSend}`;
+                console.log(`Envoi de la partie ${chunkIndex}/${totalChunks} (paragraphe long) (${messageToSend.length} caractères)`);
+                
+                await sendMessage(senderId, messageToSend);
+                chunkIndex++;
+                remainingParagraph = remainingParagraph.substring(cutPoint);
+                
+                if (remainingParagraph.length > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        } else {
+            // Ajouter le paragraphe au chunk actuel
+            if (currentChunk.length > 0) {
+                currentChunk += '\n\n';
+            }
+            currentChunk += paragraph;
+        }
     }
+    
+    // Envoyer le dernier chunk s'il reste du contenu
+    if (currentChunk.length > 0) {
+        const messageToSend = `[Partie ${chunkIndex}/${totalChunks}]\n${currentChunk}`;
+        console.log(`Envoi de la dernière partie ${chunkIndex}/${totalChunks} (${messageToSend.length} caractères)`);
+        await sendMessage(senderId, messageToSend);
+    }
+    
+    console.log(`Envoi du message complet terminé (${totalChunks} parties)`);
 }
 
 module.exports = async (senderId, prompt, attachments = []) => {
@@ -122,9 +156,11 @@ module.exports = async (senderId, prompt, attachments = []) => {
         
         // Vérifier si la réponse contient les données attendues
         if (response.data && response.data.response) {
+            console.log(`Réponse reçue de l'API, longueur: ${response.data.response.length} caractères`);
             // Utiliser la fonction de découpage pour envoyer la réponse
             await sendChunkedMessage(senderId, response.data.response);
         } else {
+            console.log('Réponse API invalide:', response.data);
             await sendMessage(senderId, "Désolé, je n'ai pas pu obtenir une réponse valide de l'API.");
         }
     } catch (error) {
