@@ -153,15 +153,15 @@ const handleMessage = async (event, api) => {
     const hasActiveRouterCommand = activeCommands[senderId] && 
                                   fs.existsSync(path.join(__dirname, '../routers', `${activeCommands[senderId]}.js`));
     
-    // Si une commande du répertoire routers est active, lui passer toutes les images
-    if (hasActiveRouterCommand && hasImages) {
+    // Si une commande du répertoire routers est active, lui passer toutes les images et tous les messages
+    if (hasActiveRouterCommand) {
         const activeCommand = activeCommands[senderId];
-        await commands[activeCommand](senderId, userText, message.attachments);
+        await commands[activeCommand](senderId, userText, message.attachments || []);
         return;
     }
     
     // Si des images sont envoyées sans commande et qu'aucune commande router n'est active, utiliser le comportement par défaut
-    if (hasImages && !isCommandWithImage && !hasActiveRouterCommand) {
+    if (hasImages && !isCommandWithImage) {
         if (imageAttachments.length > 0) {
             for (const image of imageAttachments) {
                 const imageUrl = image.payload.url;
@@ -298,7 +298,7 @@ const handleMessage = async (event, api) => {
                                   fs.existsSync(path.join(__dirname, '../routers', `${activeCommands[senderId]}.js`));
     
     // Si aucune commande n'est active ou détectée et qu'aucune commande router n'est active, utiliser Gemini pour traiter le texte
-    if (!hasActiveRouterCommand) {
+    if (!hasActiveRouterCommand && message.text) {
         const prompt = message.text;
         const customId = senderId;
 
