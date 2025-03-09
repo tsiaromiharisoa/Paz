@@ -288,10 +288,6 @@ const handleMessage = async (event, api) => {
     if (containsUrl && !activeCommands[senderId]) {
         await sendMessage(senderId, "J'ai détecté une URL dans votre message. Si vous souhaitez créer une commande basée sur cette API, utilisez la commande 'maker'.");
     }
-
-    // Vérifier si une commande du répertoire routers est activée
-    const hasActiveRouterCommand = activeCommands[senderId] && 
-                                  fs.existsSync(path.join(__dirname, '../routers', `${activeCommands[senderId]}.js`));
     
     // Si aucune commande n'est active ou détectée et qu'aucune commande router n'est active, utiliser Gemini pour traiter le texte
     if (!hasActiveRouterCommand && message.text) {
