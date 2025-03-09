@@ -1,0 +1,35 @@
+Créer une nouvelle commande appelé imaker.js dans le répertoire pilot/ à fin de créé une commande conversionnelle et une image prompt en créant en utilisant la prompt avec le bot Messenger
+Si un utilisateur envoyé seulement l'API qui contient prompt+image alors il va créé le command concernant ça dans le répertoire routers/ automatique
+
+Comment voici un exemple discussion :
+
+Utilisateur : imaker
+bot: il déclenche la commande imaker dans le répertoire pilot/
+Bot: Quel est le nom du commande à créé ?
+
+utilisateur : Gemini
+
+Bot: création nom avec succès
+Bot: donner moi l'API URL utilisé à inclure dans le commande 
+Utilisateur : https://api-test-liart-alpha.vercel.app/gemini?prompt=D%C3%A9crivez%20cette%20photo&uid=qoblcvkdt&image=https%3A%2F%2Fwww.madagascar-sur-mesure.com%2Fapp%2Fuploads%2Fsites%2F67%2F2020%2F04%2Fguide-lemurien-2-kwasny221.jpeg
+
+Bot: Merci je vais créé votre commande et j'ajoute dans le répertoire routers et après vous allez près à utiliser
+
+Bot: création du commande avec succès
+Utilisateur : gemini
+Bot la commande gemini est activé, que puis je faire pour vous ?
+Utilisateur : (envoye une image pièce jointe alors le commande Gemini répond)
+Bot: (le bot enregistre l'image pièce jointe attachement)
+Bot: donner la prompt que vous posé à cette photo
+Utilisateur : décrivez cette photo
+Bot: réponse avec l'API Gemini qu'il crée avec la commande gemini.js
+
+
+(Si la commande dans le répertoire routers que vous avez créé cette répertoire est activé alors l'API Gemini dans le handles/handleMessage.js ne répond pas jusqu'à ce que l'utilisateur envoye stop)
+
+La commande créé avec imaker.js dans le répertoire pilot/ est toujours enregistrée dans le répertoire routers/
+
+
+
+Réponse Json de l'API sur Google :
+{"response":"Voici une description de la photo :\n\nLa photo présente un lémurien catta debout sur un rocher. Le lémurien a une fourrure grise avec une longue queue distinctive à rayures noires et blanches. Ses yeux sont d'un jaune frappant. Il regarde directement l'appareil photo avec une expression curieuse.\n\nL'arrière-plan se compose d'un mur de pierres et d'une végétation verte floue, ce qui suggère que la photo a été prise dans un environnement naturel, peut-être un zoo ou un sanctuaire faunique. La scène est bien éclairée avec une lumière douce, ce qui met en évidence les détails de la fourrure du lémurien et la texture des roches."}
