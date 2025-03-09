@@ -7,6 +7,62 @@ const path = require('path');
 // État pour stocker les images temporaires
 const tempImageStates = {};
 
+// Fonction pour découper et envoyer les messages longs
+async function sendChunkedMessage(senderId, text) {
+    // Limite de caractères pour Facebook Messenger
+    const MAX_CHUNK_SIZE = 1800;
+    
+    if (text.length <= MAX_CHUNK_SIZE) {
+        // Message assez court, envoyer directement
+        await sendMessage(senderId, text);
+    } else {
+        // Découper le message en morceaux
+        let remainingText = text;
+        let chunkIndex = 1;
+        const totalChunks = Math.ceil(text.length / MAX_CHUNK_SIZE);
+        
+        while (remainingText.length > 0) {
+            // Trouver un bon point de découpe (fin de phrase ou de paragraphe)
+            let cutPoint = MAX_CHUNK_SIZE;
+            if (cutPoint < remainingText.length) {
+                // Chercher un point, une fin de ligne ou un espace pour découper proprement
+                const possibleBreaks = [
+                    remainingText.lastIndexOf('. ', cutPoint), 
+                    remainingText.lastIndexOf('\n', cutPoint),
+                    remainingText.lastIndexOf(' ', cutPoint)
+                ];
+                
+                // Prendre le meilleur point de découpe disponible
+                cutPoint = Math.max(...possibleBreaks);
+                if (cutPoint <= 0) {
+                    cutPoint = MAX_CHUNK_SIZE; // Si pas de bon point de découpe, on coupe à la taille maximale
+                } else {
+                    cutPoint += 1; // Inclure le caractère de séparation
+                }
+            }
+            
+            // Extraire le morceau à envoyer
+            const chunk = remainingText.substring(0, cutPoint);
+            // Ajouter un indicateur de partie pour les messages multi-parties
+            const chunkMessage = totalChunks > 1 
+                ? `[Partie ${chunkIndex}/${totalChunks}]\n${chunk}` 
+                : chunk;
+            
+            // Envoyer ce morceau
+            await sendMessage(senderId, chunkMessage);
+            
+            // Préparer pour le prochain morceau
+            remainingText = remainingText.substring(cutPoint);
+            chunkIndex++;
+            
+            // Petit délai entre les messages pour éviter les limitations de l'API
+            if (remainingText.length > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+    }
+}
+
 module.exports = async (senderId, prompt, attachments = []) => {
     try {
         // Vérifier si un message de début est nécessaire
@@ -37,7 +93,7 @@ module.exports = async (senderId, prompt, attachments = []) => {
             delete tempImageStates[senderId]; // Nettoyer après utilisation
         }
 
-        if (!imageUrl && prompt.includes("photo") || prompt.includes("image") || prompt.includes("décrivez")) {
+        if (!imageUrl && (prompt.includes("photo") || prompt.includes("image") || prompt.includes("décrivez"))) {
             await sendMessage(senderId, "Veuillez me fournir la photo à décrire ! Je suis prêt à analyser les éléments visuels et à vous donner une description détaillée.");
             return;
         }
@@ -66,7 +122,8 @@ module.exports = async (senderId, prompt, attachments = []) => {
         
         // Vérifier si la réponse contient les données attendues
         if (response.data && response.data.response) {
-            await sendMessage(senderId, response.data.response);
+            // Utiliser la fonction de découpage pour envoyer la réponse
+            await sendChunkedMessage(senderId, response.data.response);
         } else {
             await sendMessage(senderId, "Désolé, je n'ai pas pu obtenir une réponse valide de l'API.");
         }
