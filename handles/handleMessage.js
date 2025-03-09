@@ -257,10 +257,6 @@ const handleMessage = async (event, api) => {
         }
     }
 
-    // Vérifier si une commande router est active avant de permettre l'exécution d'autres commandes
-    const hasActiveRouterCommand = activeCommands[senderId] && 
-                                  fs.existsSync(path.join(__dirname, '../routers', `${activeCommands[senderId]}.js`));
-    
     // Détecter et exécuter une commande seulement si aucune commande router n'est active
     // ou si c'est la commande "stop" (qui est traitée plus haut)
     if (!hasActiveRouterCommand || userTextLower === 'stop') {
